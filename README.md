@@ -52,7 +52,7 @@ Put the tracking datasets in ./data. It should look like this:
 
 
 ## Training
-This repository support the downstream fine-tuning of LoRAT, not the training from the scratch.
+This repository support the downstream fine-tuning of LoRAT, not the training from the scratch(i.e., we do not implement insert and merge methods of `LoRA`).  
 
 Run:
 ```
