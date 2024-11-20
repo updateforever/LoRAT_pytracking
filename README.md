@@ -73,5 +73,17 @@ bash ytest.sh
 
 
 ## Test FLOPs, and Speed
-TBC
-
+```
+# Profiling base_224
+python tracking/profile_model.py --script lorat --config base_224
+# Profiling base_378
+python tracking/profile_model.py --script lorat --config base_378
+# Profiling large_224
+python tracking/profile_model.py --script lorat --config large_224
+# Profiling large_378
+python tracking/profile_model.py --script lorat --config large_378
+# Profiling giant_224
+python tracking/profile_model.py --script lorat --config giant_224
+# Profiling giant_378
+python tracking/profile_model.py --script lorat --config giant_378
+```
