@@ -87,3 +87,14 @@ python tracking/profile_model.py --script lorat --config giant_224
 # Profiling giant_378
 python tracking/profile_model.py --script lorat --config giant_378
 ```
+
+## Performance of Raw Results
+
+| Tracker     | GOT-10K (AO) | LaSOT (AUC) | TrackingNet (AUC) | LaSOT_Ext(AUC) | TNL2K(AUC) |
+|:-----------:|:------------:|:-----------:|:-----------------:|:--------------:|:----------:|
+|   base_224  | 72.1         | 71.7        | 83.5              |    70.7        |   57.3     |
+|   base_378  | 73.7         | 72.9        | 84.2              |    53.1        |   58.4     |
+|  large_224  | 75.7         | 74.2        | 85.0              |    52.8        |   59.5     |
+|  large_378  | 77.5         | 75.1        | 85.6              |    56.6        |   60.7     |
+|  giant_224  | 77.7         | 74.9        | 85.2              |    53.3        |   60.2     |
+|  giant_378  | 78.9         | 76.2        | 86.0              |    56.5        |   61.1     |
