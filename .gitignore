@@ -1,0 +1,11 @@
+lib/train/__pycache__/
+lib/__pycache__/
+lib/test/evaluation/__pycache__/
+lib/train/data/__pycache__/
+lib/utils/__pycache__/
+lib/test/__pycache__/
+lib/*/__pycache__/
+lib/*/*/__pycache__/
+lib/models/modules/dinov2/__pycache__/__init__.cpython-39.pyc
+**/*.pyc
+output/test/

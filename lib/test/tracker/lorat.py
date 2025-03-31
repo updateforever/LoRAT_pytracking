@@ -18,7 +18,7 @@ from lib.utils.bbox.format import bbox_xyxy_to_cxcywh, bbox_xyxy_to_xywh, bbox_c
 from contextlib import nullcontext
 from functools import partial
 import torchvision.transforms as transforms
-
+import math
 
 # TODO:
 # 1. 构建feat_mask_z来适应输入
@@ -28,7 +28,7 @@ import torchvision.transforms as transforms
 # 5. 预测在search上之后要map回到原图
 
 class LoRAT(BaseTracker):
-    def __init__(self, params, dataset_name):
+    def __init__(self, params):
         super(LoRAT, self).__init__(params)
         network = build_lorat(params.cfg, training=False)
         ckpt = torch.load(self.params.checkpoint, map_location='cpu')
@@ -112,7 +112,9 @@ class LoRAT(BaseTracker):
 
         x_curated, _, x_cropping_params = apply_siamfc_cropping(x.to(torch.float32), np.array(to_2tuple(self.cfg.TEST.SEARCH_SIZE)),
                                                 cropping_params, "bilinear", False, self.template_image_mean)
-
+        x_patch_arr = x_curated
+        resize_factor = x_cropping_params
+        search_box = self.search_box(image, self.state, self.params.search_factor)  # get search box wyp
         # resize_factor = adjusted_cropping_params[0][0]
 
         x_curated = x_curated.unsqueeze(0) / 255.
@@ -134,15 +136,23 @@ class LoRAT(BaseTracker):
         self.update_cropping_params(pred_boxes_on_full_search_image, image_size)
         self.state = bbox_xyxy_to_xywh(pred_boxes_on_full_search_image).tolist()
 
-        # for debug
-        if self.debug:
-            if not self.use_visdom:
-                x1, y1, w, h = self.state
-                image_BGR = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-                cv2.rectangle(image_BGR, (int(x1), int(y1)), (int(x1 + w), int(y1 + h)), color=(0, 0, 255), thickness=2)
-                cv2.imshow('debug', image_BGR)
-                cv2.waitKey(0)
-                # cv2.destroyAllWindows()
+        # wyp
+        all_pred_boxes = pred_outputs['soi_info']['all_bounding_boxes'].view(-1, 4).cpu().to(torch.float64).numpy()
+        all_pred_boxes_on_full_search_image = np.array([
+            apply_siamfc_cropping_to_boxes(box, reverse_siamfc_cropping_params(x_cropping_params))
+            for box in all_pred_boxes
+        ])
+        bbox_clip_to_image_boundary_(all_pred_boxes_on_full_search_image, image_size)
+        all_state = bbox_xyxy_to_xywh(all_pred_boxes_on_full_search_image).tolist()
+
+
+        self.distractor_dataset_data = dict(score_map=pred_outputs['soi_info']['score_map'],  # 1 1 h w
+                            # sample_pos=sample_pos[scale_ind, :],
+                            sample_scale=resize_factor,
+                            search_area_box=search_box, 
+                            x_dict=x_patch_arr,  # 3 378 378   384 384 3
+                            all_scoremap_boxes=all_state
+                            )
 
         return {"target_bbox": self.state, "confidence": confidence}
 
@@ -188,7 +198,12 @@ class LoRAT(BaseTracker):
         predicted_bbox = predicted_bbox.view(N, H * W, 4)
         bounding_box = torch.gather(predicted_bbox, 1, best_idx.view(N, 1, 1).expand(-1, -1, 4)).squeeze(1)
         bounding_box = (bounding_box.view(N, 2, 2) * self._scale_factor.view(1, 1, 2)).view(N, 4)
-        return {'box': bounding_box, 'confidence': confidence_score}
+
+        # wyp get all boxes
+        all_bounding_boxes = predicted_bbox.squeeze(1)
+        all_bounding_boxes = (all_bounding_boxes.view(N, H * W, 2, 2) * self._scale_factor.view(1, 1, 1, 2)).view(N, H * W, 4)
+        soi_info = {'score_map': score_map_with_penalty, 'all_bounding_boxes': all_bounding_boxes}
+        return {'box': bounding_box, 'confidence': confidence_score, 'soi_info': soi_info}
 
 
     def get_torch_amp_autocast_fn(self, device_type: str, enabled: bool, dtype: torch.dtype):
@@ -205,6 +220,27 @@ class LoRAT(BaseTracker):
         bounding_box = bbox_xyxy_to_cxcywh(bounding_box)
         bounding_box[2:4] = np.maximum(bounding_box[2:4], min_wh)
         return bbox_cxcywh_to_xyxy(bounding_box)
+
+
+    def search_box(self, im, state, search_area_factor):
+        # 搜索框坐标
+        if not isinstance(state, list):
+            x, y, w, h = state.tolist()
+        else:
+            x, y, w, h = state
+        crop_sz = math.ceil(math.sqrt(w * h) * search_area_factor)  # 模板区域sz
+        x1 = round(x + 0.5 * w - crop_sz * 0.5)
+        x2 = x1 + crop_sz
+        y1 = round(y + 0.5 * h - crop_sz * 0.5)
+        y2 = y1 + crop_sz
+        x1_pad = max(0, -x1)
+        x2_pad = max(x2 - im.shape[1] + 1, 0)
+        y1_pad = max(0, -y1)
+        y2_pad = max(y2 - im.shape[0] + 1, 0)
+        im_crop = [x1+x1_pad, y1+y1_pad, x2 - x2_pad -x1 - x1_pad, y2 - y2_pad - y1 - y1_pad] # x,y,h,w
+
+        return im_crop
+    
 
 def get_tracker_class():
     return LoRAT

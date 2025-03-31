@@ -9,6 +9,7 @@ from itertools import product
 from collections import OrderedDict
 from lib.test.evaluation import Sequence, Tracker
 import torch
+import json
 
 
 def _save_tracker_output(seq: Sequence, tracker: Tracker, output: dict):
@@ -37,6 +38,15 @@ def _save_tracker_output(seq: Sequence, tracker: Tracker, output: dict):
     def save_score(file, data):
         scores = np.array(data).astype(float)
         np.savetxt(file, scores, delimiter=',', fmt='%.2f')
+
+    def save_status(file, data):    
+        tracked_status = np.array(data).astype(str)
+        np.savetxt(file, tracked_status, fmt="%s", delimiter="\t")
+
+    def save_mask(file, data):
+        with open(file, 'w') as f:
+            for frame_mask in data:
+                f.write(json.dumps(frame_mask) + '\n')
 
     def _convert_dict(input_dict):
         data_dict = {}
@@ -100,6 +110,15 @@ def _save_tracker_output(seq: Sequence, tracker: Tracker, output: dict):
             else:
                 timings_file = '{}_time.txt'.format(base_results_path)
                 save_time(timings_file, data)
+
+        elif key == 'status':
+            # Single-object mode
+            status_file = '{}_status.txt'.format(base_results_path)
+            save_status(status_file, data)
+        elif key == 'mask_boxes':
+            # Single-object mode
+            mask_file = '{}_mask.jsonl'.format(base_results_path)
+            save_mask(mask_file, data)
 
 
 def run_sequence(seq: Sequence, tracker: Tracker, debug=False, num_gpu=8, epoch=300):

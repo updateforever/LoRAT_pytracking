@@ -22,7 +22,8 @@ def parameters(yaml_name: str, epoch=300):
     params.window_penalty = cfg.TEST.WINDOW_PENALTY
 
     # Network checkpoint path
-    params.checkpoint = os.path.join(prj_dir, "pretrained", cfg.MODEL.PRETRAIN_FILE)  
+    # params.checkpoint = os.path.join(prj_dir, "pretrained", cfg.MODEL.PRETRAIN_FILE)  
+    params.checkpoint = '/mnt/first/wangyipei/LoRAT_models/giant_378.pth'
 
 
     # whether to save boxes from all queries
